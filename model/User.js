@@ -12,21 +12,21 @@ const userSchema= mongoose.Schema({
     },
     password: {
         type: String,
-        minlength: 50,
+        minlength: 5
     },
     lastname:{
         type: String,
-        maxlength: 50,
+        maxlength: 50
     },
     role:{ // 유저중 관리자또는 일반 유저가 있을 수 있으니. 
         type: Number,
-        default: 0.,
+        default: 0
     },
     image: String,
     token:{ //유효성관리
-        type:String,
+        type:String
     },tokenExp:{ //유효기간 token이 사용할 수 있는 기간.
-        type: Number,
+        type: Number
     }
 })
 
