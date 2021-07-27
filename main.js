@@ -13,6 +13,11 @@ app.use(bodyParser.json()); //application/json 타입으로 된것을 분석해�
 //-----------몽고DB정보를  비밀로 하기.
 
 const config=require('./config/key');
+
+//cookie-parser가져오기
+const cookieParser=require('cookie-parser');
+app.use(cookieParser());
+
 //-----------------------------------------mongoose
 const mongoose=require('mongoose');
 mongoose.connect(config.mongoURI, {   //몽고디비에 연결하는 부분 , 객체부분은 에러안뜨게 하기 위해.
@@ -35,6 +40,8 @@ app.listen(port,()=>console.log(`Example app listenling on port ${port}!`))
 app.post('/register',(req,res)=>{
     //회원가입할떄 필요한 정보들을 client에서 가져오면 그것들을 데이터베이스에 넣어준다.
     const user= new User(req.body); //정보들을 데이터베이스에 넣기 위해.
+
+
     user.save((err,userInfo)=>{
         if(err) return res.json({success: false, err}) //client한테 error가 있다고 전달.
         return res.status(200).json({
@@ -48,5 +55,40 @@ app.post('/register',(req,res)=>{
 //하지만 node mon을 서버를 내리지 않아도 이용하면 알아서 변화된 부분을 반영해준다. (npm install nodemon --save-dev에서 -dev는 local에서만 사용하겠다라는 의미)
 //nodemon으로 시작하기 위해서 script하나를 더 만들기?? package.json에서해라
 
-//비밀정보
+//비밀정보>>mongoDB
+
+//비밀번호 암호화 하기 >> Bcrypt npm install bcrypt --save 
+
+
+
+
+//로그인 기능 만들기.
+app.post('/login',(req,res)=>{
+    //3가지 데이터베이스안에서 요청된 이메일 찾기, 요청한 이메일과 비밀번호가 같은지, 비밀번호가 같으면  토큰 생성
+    //요청된 이메일 찾기
+    User.findOne({email: req.body.email},(err,user)=>{
+            if(!user){
+                return res.json({
+                    loginSuccess: false,
+                    message: "제공된 이메일에 해당하는 유저가 없습니다."
+                })
+            }
+        //이메일이 있다면 비밀번호가 맞는 것인지 확인.
+            user.comparePassword(req.body.password, (err, isMatch)=>{
+                if(!isMatch)
+                    return res.json({loginSuccess:false, message:"비밀번호가 틀렸습니다."}) 
+
+                //비밀번호까지 맞다면 토근 생성.
+                user.generateToken((err,user)=>{  //user에 토근이 저장되어있음
+                    if(err) return res.status(400).send(err);
+
+                    //토근을 저장한다. (쿠기 또는 로컬저장소에. 여기에서는 쿠기에=>cookie-parser깔아야됨.)
+                    res.cookie("x_auth",user.token)
+                        .status(200)
+                        .json({loginSuccess: true, userId:user._id})
+                })
+        })
+    })    
+})
+
 
