@@ -14,7 +14,8 @@ const userSchema= mongoose.Schema({
     },
     email:{
         type: String,
-        trim: true //이메일에 빈칸을 입력했을 때 없애주는 역할
+        trim: true, //이메일에 빈칸을 입력했을 때 없애주는 역할
+        unique:1
     },
     password: {
         type: String,
@@ -30,7 +31,7 @@ const userSchema= mongoose.Schema({
     },
     image: String,
     token:{ //유효성관리
-        type:String
+        type: String
     },
     tokenExp:{ //유효기간 token이 사용할 수 있는 기간.
         type: Number
@@ -63,16 +64,32 @@ userSchema.methods.comparePassword = function(plainPassword, cb){
     })
 }
 
-userSchema.methods.generateToken=function(cb){
+userSchema.methods.generateToken = function(cb){
     //jsonwebtoken을 이용해서 token생성하기
     var user=this;
     var token= jwt.sign(user._id.toHexString(),'secretToken'); //user._id+'secretToken'=token해서 나오는 것을 token으로 비교.
-    user.token=token;
+    user.token=token
     user.save(function(err,user){
-        if(err) return cb(err);
-        cb(null,user);
+        if(err) return cb(err)
+        cb(null,user)
     })
 }
+
+//client의 쿠키안에 있는 토큰을 가져와서 서버의 데이터베이스의 토큰과 비교해서 인증을 했다. 
+userSchema.statics.findByToken = function(token, cb) {
+    var user = this;
+    // user._id + '~~~'  = token
+    //토큰을 decode 한다. 
+    jwt.verify(token, 'secretToken', function (err, decoded) {  //decoded 된거는 user._id이다.
+        //유저 아이디를 이용해서 유저를 찾은 다음에 
+        //클라이언트에서 가져온 token과 DB에 보관된 토큰이 일치하는지 확인
+        user.findOne({ "_id": decoded, "token": token }, function (err, user) {  //findOne는 몽고DB에 있는 메소드
+            if (err) return cb(err);
+            cb(null, user)
+        })
+    })
+}
+
 
 const User=mongoose.model('User',userSchema);//스키마를 모델로 감싸주는 것  이모델의 이름은 User다
 

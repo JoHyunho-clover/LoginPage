@@ -25,6 +25,8 @@ mongoose.connect(config.mongoURI, {   //몽고디비에 연결하는 부분 , �
 }).then(()=>console.log('MongDB Connected...'))
     .catch(err=>console.log(err)) 
 
+//----auth가져오기
+const {auth}=require('./middleware/auth');
 
 //----------------------------------------express
 app.get('/',(req,res)=>res.send('Hello World! 안녕'));
@@ -37,7 +39,7 @@ app.listen(port,()=>console.log(`Example app listenling on port ${port}!`))
 //                                                     받을때 Body-parser를 이용해서 clinet에서 보내주는 비번 이메일 이름을 받을 수 있다.
 //                                                      Postman- 로그인이나 회원가입시 client를 만들어준것이 없어서 데이터를 client에서 보낼수 없어서 이거 사용.)
 //회원가입을 위한 route를 만들면된다.
-app.post('/register',(req,res)=>{
+app.post('/api/users/register',(req,res)=>{
     //회원가입할떄 필요한 정보들을 client에서 가져오면 그것들을 데이터베이스에 넣어준다.
     const user= new User(req.body); //정보들을 데이터베이스에 넣기 위해.
 
@@ -63,32 +65,64 @@ app.post('/register',(req,res)=>{
 
 
 //로그인 기능 만들기.
-app.post('/login',(req,res)=>{
+app.post('/api/users/login',(req,res)=>{
     //3가지 데이터베이스안에서 요청된 이메일 찾기, 요청한 이메일과 비밀번호가 같은지, 비밀번호가 같으면  토큰 생성
-    //요청된 이메일 찾기
+    //1. 요청된 이메일 찾기
     User.findOne({email: req.body.email},(err,user)=>{
-            if(!user){
-                return res.json({
-                    loginSuccess: false,
-                    message: "제공된 이메일에 해당하는 유저가 없습니다."
-                })
-            }
-        //이메일이 있다면 비밀번호가 맞는 것인지 확인.
-            user.comparePassword(req.body.password, (err, isMatch)=>{
-                if(!isMatch)
-                    return res.json({loginSuccess:false, message:"비밀번호가 틀렸습니다."}) 
-
-                //비밀번호까지 맞다면 토근 생성.
-                user.generateToken((err,user)=>{  //user에 토근이 저장되어있음
-                    if(err) return res.status(400).send(err);
-
-                    //토근을 저장한다. (쿠기 또는 로컬저장소에. 여기에서는 쿠기에=>cookie-parser깔아야됨.)
-                    res.cookie("x_auth",user.token)
-                        .status(200)
-                        .json({loginSuccess: true, userId:user._id})
-                })
+        if(!user){
+            return res.json({
+                loginSuccess: false,
+                message: "제공된 이메일에 해당하는 유저가 없습니다."
+            })
+        }
+        //2. 이메일이 있다면 비밀번호가 맞는 것인지 확인.
+        user.comparePassword(req.body.password, (err, isMatch)=>{
+            if(!isMatch)
+                return res.json({loginSuccess:false, message:"비밀번호가 틀렸습니다."}) 
+            //비밀번호까지 맞다면 토근 생성.
+            user.generateToken((err,user)=>{  //user에 토근이 저장되어있음
+                if(err) return res.status(400).send(err);
+                //3. 토근을 저장한다. (쿠기 또는 로컬저장소에. 여기에서는 쿠기에=>cookie-parser깔아야됨.)
+                res.cookie("x_auth",user.token)
+                    .status(200)
+                    .json({loginSuccess: true, userId:user._id})
+            })
         })
     })    
 })
 
+//Auth 기능만들기 >> 어떤 사이트를 들어갔을때 여러가지 페이지들 중 로그인된 유저들만 들어갈 수 있고 어느 페이지는 로그인안해도 이용할 수 있는 페이지를 나누는것.
+//하는 방법은 서버는 데이터베이스의 토큰 과 client에서 쿠키의 토근과 계속 일치하는지 확인하는 것이다. 만약 일치하면 인증이되는 것이다.
 
+// role 1 어드민    role 2 특정 부서 어드민 
+// role 0 -> 일반유저   role 0이 아니면  관리자 
+app.get('/api/users/auth', auth, (req, res) => {   //auth 미드웨어라는 것으로 endpoint에서 request를 받은다음에 콜백함수를 실행하기전에 중간에서 무엇을 해주는 거다.
+    //여기 까지 미들웨어를 통과해 왔다는 얘기는  Authentication 이 True 라는 말.
+    res.status(200).json({
+        _id: req.user._id,
+        isAdmin: req.user.role === 0 ? false : true,
+        isAuth: true,
+        email: req.user.email,
+        name: req.user.name,
+        lastname: req.user.lastname,
+        role: req.user.role,
+        image: req.user.image
+    })
+})
+
+//토큰을 쥐어주면 인증이 안되서 로그인 기능이 풀린다.
+app.get('/api/users/logout', auth, (req, res) => {
+    // console.log('req.user', req.user)
+    User.findOneAndUpdate({ _id: req.user._id }, //auth미드웨어에서 가져와서 찾은다음에
+        { token: "" } //토큰을 지우는것
+        , (err, user) => { // 콜백함수로 에러가 났으면 false 에러가 아니면 true를 보낸다.
+        if (err) return res.json({ success: false, err });
+        return res.status(200).send({
+            success: true
+        })
+    })
+})
+
+app.get('/api/hello', (req, res)=> {
+    res.send("안녕하세요~")
+})
