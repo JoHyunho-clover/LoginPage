@@ -2,7 +2,7 @@
 //----------------------------------------express
 const express=require('express'); //>>node js를 가지고 웹사이트나 어플리케이션을 쉽게 만들수 있게 도와주는 프래임워크
 const app=express();
-const port=3000;
+
 
 //------------
 const {User}=require("./model/User")
@@ -31,7 +31,6 @@ const {auth}=require('./middleware/auth');
 //----------------------------------------express
 app.get('/',(req,res)=>res.send('Hello World! 안녕'));
 
-app.listen(port,()=>console.log(`Example app listenling on port ${port}!`))
 
 
 
@@ -123,6 +122,10 @@ app.get('/api/users/logout', auth, (req, res) => {
     })
 })
 
-app.get('/api/hello', (req, res)=> {
-    res.send("안녕하세요~")
-})
+app.get('/api/hello', (req, res)=> res.send("안녕하세요~"))
+
+//백서버와 프론트서버를 두개를 같이 키기 위해서는  npm install concurrently --save를 해야한다.
+//package.json script의 "dev"참고./
+
+const port=5000
+app.listen(port,()=>console.log(`Example app listenling on port ${port}!`))
